@@ -1,0 +1,5 @@
+apiVersion: v2
+name: agentops-observability
+description: Lab workloads for the AgentOps in Production workshop. Deploys the full AI Ops Assistant stack, observability tooling, and RHOAI workbench into the agentops-demo namespace.
+type: application
+version: 0.1.0

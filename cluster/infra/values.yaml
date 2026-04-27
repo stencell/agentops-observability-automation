@@ -1,0 +1,20 @@
+# Cluster-level operator installs.
+# All operators disabled by default — enable per-operator in the Field Source CI catalog.
+
+operators:
+  rhoai:
+    enabled: false
+    channel: stable
+    namespace: redhat-ods-operator
+
+  lokiOperator:
+    enabled: false
+    channel: stable
+
+  openshiftLogging:
+    enabled: false
+    channel: stable
+
+  grafanaOperator:
+    enabled: false
+    channel: v5

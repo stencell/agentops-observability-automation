@@ -1,0 +1,18 @@
+---
+# Provision data — surfaced to participants as Showroom {attribute} variables.
+# The demo.redhat.com/tenant-<guid> label tells RHDP/Field Source to pick up this ConfigMap.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: provisiondata-{{ .Values.deployer.guid }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    demo.redhat.com/tenant-{{ .Values.deployer.guid }}: "true"
+data:
+  showroom_url: "https://showroom-{{ .Values.namespace }}.{{ .Values.deployer.domain }}"
+  openshift_console_url: "https://console-openshift-console.{{ .Values.deployer.domain }}"
+  rhods_dashboard_url: "https://rhods-dashboard-redhat-ods-applications.{{ .Values.deployer.domain }}"
+  grafana_url: "https://grafana-route-{{ .Values.namespace }}.{{ .Values.deployer.domain }}"
+  mlflow_url: "https://mlflow-{{ .Values.namespace }}.{{ .Values.deployer.domain }}"
+  project_namespace: {{ .Values.namespace | quote }}
+  cluster_domain: {{ .Values.deployer.domain | quote }}

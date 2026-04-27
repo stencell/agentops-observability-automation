@@ -1,0 +1,58 @@
+# Lab chart values — all meaningful values must be set by the bootstrap Application.
+# Defaults here are documentation-only; "MUST-BE-SET" causes loud failure if not overridden.
+
+namespace: "MUST-BE-SET"
+
+deployer:
+  domain: ""
+  guid: ""
+
+# litemaas — forwarded from bootstrap; creates a Secret when enabled.
+litemaas:
+  enabled: false
+  apiUrl: ""
+  apiKey: ""
+  model: ""
+
+# Image tags — pinned; never use latest in production
+images:
+  supervisorAgent: quay.io/agentops-lab/supervisor-agent:v1.0
+  docsRetrievalAgent: quay.io/agentops-lab/docs-retrieval-agent:v1.0
+  runbookRetrievalAgent: quay.io/agentops-lab/runbook-retrieval-agent:v1.0
+  synthesisAgent: quay.io/agentops-lab/synthesis-agent:v1.0
+  chromadb: chromadb/chroma:0.5.0
+  loadGenerator: quay.io/agentops-lab/load-generator:v1.0
+  mlflow: ghcr.io/mlflow/mlflow:v2.14.0
+  minio: quay.io/minio/minio:RELEASE.2024-06-13T22-53-53Z   # S3 backend for LokiStack
+  workbench: quay.io/agentops-lab/workbench:v1.0
+  evalRunner: quay.io/agentops-lab/eval-runner:v1.0
+  chromadbSeeder: quay.io/agentops-lab/chromadb-seeder:v1.0  # TODO: build this image
+
+# Fault injection rates — tunable without rebuilding images
+faultInjection:
+  docsAgentSlowRate: "0.30"
+  runbookAgentFaultRate: "0.33"
+
+# Storage sizes
+storage:
+  chromadb: 5Gi
+  mlflow: 5Gi
+  minio: 10Gi
+  workbench: 20Gi
+
+# RHOAI workbench config
+workbench:
+  name: agentops-lab
+  dataScienceProjectName: agentops-lab
+  notebookImage: quay.io/agentops-lab/workbench:v1.0
+
+# LokiStack config
+lokiStack:
+  name: agentops-loki
+  size: 1x.extra-small    # appropriate for SNO lab environments
+
+# MinIO internal credentials — used only by LokiStack and the bucket init job.
+# Not exposed to participants. Override in catalog if desired.
+minio:
+  rootUser: "minioadmin"
+  rootPassword: "minioadmin"

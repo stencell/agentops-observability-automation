@@ -1,0 +1,33 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: load-generator
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: load-generator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: load-generator
+  template:
+    metadata:
+      labels:
+        app: load-generator
+    spec:
+      containers:
+        - name: load-generator
+          image: {{ .Values.images.loadGenerator }}
+          env:
+            - name: ASSISTANT_URL
+              value: "http://supervisor.{{ .Values.namespace }}.svc.cluster.local:8000"
+            - name: QUERY_INTERVAL_SECONDS
+              value: "10"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi

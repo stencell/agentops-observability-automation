@@ -1,0 +1,64 @@
+---
+# LokiStack instance — requires the Loki Operator to be installed first.
+# Uses MinIO as the S3-compatible storage backend.
+apiVersion: loki.grafana.com/v1
+kind: LokiStack
+metadata:
+  name: {{ .Values.lokiStack.name }}
+  namespace: {{ .Values.namespace }}
+spec:
+  size: {{ .Values.lokiStack.size }}
+  storage:
+    schemas:
+      - version: v13
+        effectiveDate: "2024-01-01"
+    secret:
+      name: loki-s3-secret
+      type: s3
+  storageClassName: ""   # uses default StorageClass on SNO
+  tenants:
+    mode: openshift-logging
+---
+# S3 credentials for LokiStack pointing at the in-cluster MinIO instance.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: loki-s3-secret
+  namespace: {{ .Values.namespace }}
+type: Opaque
+stringData:
+  endpoint: "http://minio.{{ .Values.namespace }}.svc.cluster.local:9000"
+  bucketnames: "loki"
+  access_key_id: {{ .Values.minio.rootUser | quote }}
+  access_key_secret: {{ .Values.minio.rootPassword | quote }}
+  region: "us-east-1"              # MinIO ignores region; required field for LokiStack
+---
+# ClusterLogForwarder — routes pod logs from agentops-demo to LokiStack.
+# Requires the OpenShift Logging operator to be installed.
+apiVersion: logging.openshift.io/v1
+kind: ClusterLogForwarder
+metadata:
+  name: instance
+  namespace: openshift-logging
+spec:
+  inputs:
+    - name: agentops-pods
+      application:
+        namespaces:
+          - {{ .Values.namespace }}
+  outputs:
+    - name: agentops-loki
+      type: loki
+      url: "http://{{ .Values.lokiStack.name }}-gateway-http.{{ .Values.namespace }}.svc.cluster.local:8080"
+      loki:
+        tenantKey: log_type
+        labelKeys:
+          - kubernetes.namespace_name
+          - kubernetes.pod_name
+          - kubernetes.container_name
+  pipelines:
+    - name: agentops-logs
+      inputRefs:
+        - agentops-pods
+      outputRefs:
+        - agentops-loki

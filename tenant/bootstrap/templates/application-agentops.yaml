@@ -1,0 +1,41 @@
+{{- if .Values.labs.agentopsObservability.enabled }}
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: agentops-observability-{{ .Values.deployer.guid }}
+  namespace: openshift-gitops
+  labels:
+    demo.redhat.com/application: "field-content"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: tenants
+  source:
+    repoURL: {{ .Values.labs.agentopsObservability.repoUrl | quote }}
+    targetRevision: {{ .Values.labs.agentopsObservability.repoRevision }}
+    path: tenant/labs/agentops-observability
+    helm:
+      values: |
+        namespace: {{ .Values.labs.agentopsObservability.namespace | quote }}
+        deployer:
+          {{- .Values.deployer | toYaml | nindent 10 }}
+        litemaas:
+          {{- .Values.litemaas | toYaml | nindent 10 }}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: {{ .Values.labs.agentopsObservability.namespace }}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - SkipDryRunOnMissingResource=true   # operator CRDs (LokiStack, Grafana, Notebook) may not exist yet when first sync runs
+      - RespectIgnoreDifferences=true
+    retry:
+      limit: 15
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+{{- end }}

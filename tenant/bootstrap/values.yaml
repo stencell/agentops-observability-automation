@@ -1,0 +1,21 @@
+# Deployer values — injected by the Field Source CI role at deploy time.
+# Never set real values here; these are documentation-only defaults.
+deployer:
+  domain: ""       # apps.<cluster-guid>.<base-domain> — injected at deploy time
+  guid: ""         # cluster GUID — injected at deploy time
+
+# Lab workload toggle — disabled by default, enabled in Field Source CI catalog.
+labs:
+  agentopsObservability:
+    enabled: false
+    namespace: agentops-demo
+    repoUrl: ""    # Set to the automation repo HTTPS URL in the catalog (e.g. https://github.com/stencell/agentops-observability-automation.git)
+    repoRevision: main
+
+# litemaas — optionally provisioned at order time via Field Source CI.
+# When enabled, these values are forwarded to the lab chart which creates the MaaS Secret.
+litemaas:
+  enabled: false
+  apiUrl: ""
+  apiKey: ""
+  model: ""

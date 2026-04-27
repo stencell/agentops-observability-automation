@@ -1,0 +1,68 @@
+---
+# ChromaDB seeder job — loads the ocp-docs and sre-runbooks collections.
+# Runs after ChromaDB is healthy. The seeder image must contain:
+#   - chromadb Python client
+#   - pre-chunked document content (embedded in the image or pulled from git)
+# TODO: Build and push quay.io/agentops-lab/chromadb-seeder:v1.0
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: chromadb-seed
+  namespace: {{ .Values.namespace }}
+  annotations:
+    helm.sh/hook: post-install
+    helm.sh/hook-weight: "10"
+    helm.sh/hook-delete-policy: hook-succeeded
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      initContainers:
+        # Wait for ChromaDB to be ready before seeding
+        - name: wait-chromadb
+          image: quay.io/curl/curl:8.6.0
+          command:
+            - /bin/sh
+            - -c
+            - |
+              until curl -sf http://chromadb.{{ .Values.namespace }}.svc.cluster.local:8000/api/v1/heartbeat; do
+                echo "Waiting for ChromaDB..."
+                sleep 5
+              done
+      containers:
+        - name: seeder
+          image: {{ .Values.images.chromadbSeeder }}
+          env:
+            - name: CHROMADB_URL
+              value: {{ include "agentops.chromadbUrl" . | quote }}
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+---
+# eval-runner image warmup job — pre-pulls the KFP component image to cluster nodes.
+# Avoids cold-pull timeout on the first pipeline run in module 5.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: eval-runner-warmup
+  namespace: {{ .Values.namespace }}
+  annotations:
+    helm.sh/hook: post-install
+    helm.sh/hook-weight: "15"
+    helm.sh/hook-delete-policy: hook-succeeded
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: warmup
+          image: {{ .Values.images.evalRunner }}
+          command: ["/bin/sh", "-c", "echo 'eval-runner image pre-pulled successfully'"]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi

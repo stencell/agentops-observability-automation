@@ -1,0 +1,17 @@
+{{- if .Values.operators.grafanaOperator.enabled }}
+---
+# Grafana Operator — community operator, certified in OperatorHub.
+# No Red Hat first-party equivalent provides the Grafana Explore interface
+# required for the LogQL exercises in module 2.
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: grafana-operator
+  namespace: openshift-operators
+spec:
+  channel: {{ .Values.operators.grafanaOperator.channel }}
+  installPlanApproval: Automatic
+  name: grafana-operator
+  source: community-operators
+  sourceNamespace: openshift-marketplace
+{{- end }}

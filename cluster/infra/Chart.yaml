@@ -1,0 +1,5 @@
+apiVersion: v2
+name: agentops-observability-infra
+description: Cluster-level infrastructure for the AgentOps in Production lab. Installs operators required before application resources are created.
+type: application
+version: 0.1.0

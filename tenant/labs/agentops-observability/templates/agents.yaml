@@ -1,0 +1,238 @@
+---
+# Supervisor Agent
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: supervisor
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: ai-ops-assistant
+    agent: supervisor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      agent: supervisor
+  template:
+    metadata:
+      labels:
+        app: ai-ops-assistant
+        agent: supervisor
+    spec:
+      containers:
+        - name: supervisor
+          image: {{ .Values.images.supervisorAgent }}
+          ports:
+            - containerPort: 8000
+          env:
+            {{- include "agentops.maasEnv" . | nindent 12 }}
+            - name: MLFLOW_TRACKING_URI
+              value: {{ include "agentops.mlflowUri" . | quote }}
+            - name: DOCS_AGENT_URL
+              value: "http://docs-retrieval.{{ .Values.namespace }}.svc.cluster.local:8000"
+            - name: RUNBOOK_AGENT_URL
+              value: "http://runbook-retrieval.{{ .Values.namespace }}.svc.cluster.local:8000"
+            - name: SYNTHESIS_AGENT_URL
+              value: "http://synthesis.{{ .Values.namespace }}.svc.cluster.local:8000"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: supervisor
+  namespace: {{ .Values.namespace }}
+spec:
+  selector:
+    agent: supervisor
+  ports:
+    - port: 8000
+      targetPort: 8000
+---
+# Docs Retrieval Agent
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: docs-retrieval
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: ai-ops-assistant
+    agent: docs-retrieval
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      agent: docs-retrieval
+  template:
+    metadata:
+      labels:
+        app: ai-ops-assistant
+        agent: docs-retrieval
+    spec:
+      containers:
+        - name: docs-retrieval
+          image: {{ .Values.images.docsRetrievalAgent }}
+          ports:
+            - containerPort: 8000
+          env:
+            {{- include "agentops.maasEnv" . | nindent 12 }}
+            - name: MLFLOW_TRACKING_URI
+              value: {{ include "agentops.mlflowUri" . | quote }}
+            - name: CHROMADB_URL
+              value: {{ include "agentops.chromadbUrl" . | quote }}
+            - name: CHROMADB_COLLECTION
+              value: ocp-docs
+            - name: DOCS_AGENT_SLOW_RATE
+              value: {{ .Values.faultInjection.docsAgentSlowRate | quote }}
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: docs-retrieval
+  namespace: {{ .Values.namespace }}
+spec:
+  selector:
+    agent: docs-retrieval
+  ports:
+    - port: 8000
+      targetPort: 8000
+---
+# Runbook Retrieval Agent
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: runbook-retrieval
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: ai-ops-assistant
+    agent: runbook-retrieval
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      agent: runbook-retrieval
+  template:
+    metadata:
+      labels:
+        app: ai-ops-assistant
+        agent: runbook-retrieval
+    spec:
+      containers:
+        - name: runbook-retrieval
+          image: {{ .Values.images.runbookRetrievalAgent }}
+          ports:
+            - containerPort: 8000
+          env:
+            {{- include "agentops.maasEnv" . | nindent 12 }}
+            - name: MLFLOW_TRACKING_URI
+              value: {{ include "agentops.mlflowUri" . | quote }}
+            - name: CHROMADB_URL
+              value: {{ include "agentops.chromadbUrl" . | quote }}
+            - name: CHROMADB_COLLECTION
+              value: sre-runbooks
+            - name: RUNBOOK_AGENT_FAULT_RATE
+              value: {{ .Values.faultInjection.runbookAgentFaultRate | quote }}
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: runbook-retrieval
+  namespace: {{ .Values.namespace }}
+spec:
+  selector:
+    agent: runbook-retrieval
+  ports:
+    - port: 8000
+      targetPort: 8000
+---
+# Synthesis Agent
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: synthesis
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: ai-ops-assistant
+    agent: synthesis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      agent: synthesis
+  template:
+    metadata:
+      labels:
+        app: ai-ops-assistant
+        agent: synthesis
+    spec:
+      containers:
+        - name: synthesis
+          image: {{ .Values.images.synthesisAgent }}
+          ports:
+            - containerPort: 8000
+          env:
+            {{- include "agentops.maasEnv" . | nindent 12 }}
+            - name: MLFLOW_TRACKING_URI
+              value: {{ include "agentops.mlflowUri" . | quote }}
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: synthesis
+  namespace: {{ .Values.namespace }}
+spec:
+  selector:
+    agent: synthesis
+  ports:
+    - port: 8000
+      targetPort: 8000

@@ -1,0 +1,169 @@
+---
+# Grafana instance — managed by the community Grafana Operator v5.
+apiVersion: grafana.integreatly.org/v1beta1
+kind: Grafana
+metadata:
+  name: agentops-grafana
+  namespace: {{ .Values.namespace }}
+  labels:
+    dashboards: agentops
+spec:
+  config:
+    log:
+      mode: console
+    auth:
+      disable_login_form: "false"
+    security:
+      admin_user: admin
+      admin_password: grafana               # internal lab password — not sensitive
+  route:
+    spec:
+      tls:
+        termination: edge
+        insecureEdgeTerminationPolicy: Redirect
+  serviceAccount:
+    name: grafana-sa
+---
+# Prometheus datasource — reads from OpenShift user workload monitoring.
+# The grafana-sa service account needs cluster-monitoring-view (bound in namespace-rbac.yaml).
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDatasource
+metadata:
+  name: prometheus
+  namespace: {{ .Values.namespace }}
+spec:
+  instanceSelector:
+    matchLabels:
+      dashboards: agentops
+  datasource:
+    name: Prometheus
+    type: prometheus
+    access: proxy
+    url: https://thanos-querier.openshift-monitoring.svc.cluster.local:9091
+    jsonData:
+      timeInterval: 5s
+      tlsSkipVerify: true
+      httpHeaderName1: Authorization
+    secureJsonData:
+      httpHeaderValue1: "Bearer $__env{BEARER_TOKEN}"
+    isDefault: true
+---
+# Loki datasource — reads from the in-cluster LokiStack gateway.
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDatasource
+metadata:
+  name: loki
+  namespace: {{ .Values.namespace }}
+spec:
+  instanceSelector:
+    matchLabels:
+      dashboards: agentops
+  datasource:
+    name: Loki
+    type: loki
+    access: proxy
+    url: "http://{{ .Values.lokiStack.name }}-gateway-http.{{ .Values.namespace }}.svc.cluster.local:8080"
+    jsonData:
+      httpHeaderName1: "X-Scope-OrgID"
+    secureJsonData:
+      httpHeaderValue1: "application"
+    isDefault: false
+---
+# AI Ops Assistant Overview dashboard.
+# TODO: Replace the placeholder PromQL queries below with the actual metric names
+# once the agent containers are built and metrics are verified on a real cluster.
+# Expected metric names based on automation manifest:
+#   agentops_requests_total{agent="..."}
+#   agentops_token_count_total{agent="...", direction="prompt|completion"}
+#   agentops_ttft_seconds_bucket{agent="..."}  (histogram)
+#   agentops_tool_calls_total{agent="...", result="success|empty"}
+#   agentops_errors_total{agent="..."}
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: ai-ops-assistant-overview
+  namespace: {{ .Values.namespace }}
+spec:
+  instanceSelector:
+    matchLabels:
+      dashboards: agentops
+  json: |
+    {
+      "title": "AI Ops Assistant Overview",
+      "uid": "agentops-overview",
+      "schemaVersion": 38,
+      "refresh": "10s",
+      "time": {"from": "now-30m", "to": "now"},
+      "panels": [
+        {
+          "id": 1,
+          "title": "Requests per minute",
+          "type": "timeseries",
+          "gridPos": {"h": 8, "w": 8, "x": 0, "y": 0},
+          "targets": [{
+            "datasource": {"type": "prometheus"},
+            "expr": "rate(agentops_requests_total[1m]) * 60",
+            "legendFormat": "req/min"
+          }]
+        },
+        {
+          "id": 2,
+          "title": "Token usage by agent",
+          "type": "barchart",
+          "gridPos": {"h": 8, "w": 8, "x": 8, "y": 0},
+          "targets": [
+            {
+              "datasource": {"type": "prometheus"},
+              "expr": "rate(agentops_token_count_total{direction=\"prompt\"}[5m])",
+              "legendFormat": "{{agent}} (prompt)"
+            },
+            {
+              "datasource": {"type": "prometheus"},
+              "expr": "rate(agentops_token_count_total{direction=\"completion\"}[5m])",
+              "legendFormat": "{{agent}} (completion)"
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "title": "Time to first token (TTFT) — P50 and P95",
+          "type": "timeseries",
+          "gridPos": {"h": 8, "w": 8, "x": 16, "y": 0},
+          "targets": [
+            {
+              "datasource": {"type": "prometheus"},
+              "expr": "histogram_quantile(0.50, rate(agentops_ttft_seconds_bucket[5m]))",
+              "legendFormat": "P50"
+            },
+            {
+              "datasource": {"type": "prometheus"},
+              "expr": "histogram_quantile(0.95, rate(agentops_ttft_seconds_bucket[5m]))",
+              "legendFormat": "P95"
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "title": "Tool call success rate",
+          "type": "timeseries",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+          "targets": [{
+            "datasource": {"type": "prometheus"},
+            "expr": "rate(agentops_tool_calls_total{result=\"success\"}[5m]) / rate(agentops_tool_calls_total[5m]) * 100",
+            "legendFormat": "{{agent}}"
+          }],
+          "fieldConfig": {"defaults": {"unit": "percent", "min": 0, "max": 100}}
+        },
+        {
+          "id": 5,
+          "title": "Per-agent error rate",
+          "type": "timeseries",
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+          "targets": [{
+            "datasource": {"type": "prometheus"},
+            "expr": "rate(agentops_errors_total[5m])",
+            "legendFormat": "{{agent}}"
+          }]
+        }
+      ]
+    }

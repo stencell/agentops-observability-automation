@@ -1,0 +1,88 @@
+---
+# DataScienceCluster — enables RHOAI components on this cluster.
+# Required before any Notebook or DataSciencePipelinesApplication CRs can be created.
+apiVersion: datasciencecluster.opendatahub.io/v1
+kind: DataScienceCluster
+metadata:
+  name: default-dsc
+spec:
+  components:
+    dashboard:
+      managementState: Managed
+    workbenches:
+      managementState: Managed
+    datasciencepipelines:
+      managementState: Managed
+    codeflare:
+      managementState: Removed
+    kserve:
+      managementState: Removed
+    modelmeshserving:
+      managementState: Removed
+    ray:
+      managementState: Removed
+    trainingoperator:
+      managementState: Removed
+---
+# DataSciencePipelinesApplication — enables AI Pipelines (KFP v2) for the lab project.
+# Required for module 5.
+apiVersion: datasciencepipelines.opendatahub.io/v1alpha1
+kind: DataSciencePipelinesApplication
+metadata:
+  name: pipelines-definition
+  namespace: {{ .Values.namespace }}
+spec:
+  apiServer:
+    deploy: true
+  database:
+    disableHealthCheck: false
+    mariaDB:
+      deploy: true
+  objectStorage:
+    disableHealthCheck: false
+    externalStorage:
+      bucket: mlflow-artifacts
+      host: minio.{{ .Values.namespace }}.svc.cluster.local
+      port: "9000"
+      s3CredentialsSecret:
+        accessKey: rootUser
+        secretKey: rootPassword
+        secretName: minio-credentials
+      scheme: http
+---
+# RHOAI workbench notebook — pre-launched so participants can open it immediately.
+# The notebook image must include: mlflow>=2.14, langchain>=0.2, kfp, agentops_client, pandas.
+apiVersion: kubeflow.org/v1
+kind: Notebook
+metadata:
+  name: {{ .Values.workbench.name }}
+  namespace: {{ .Values.namespace }}
+  annotations:
+    notebooks.opendatahub.io/inject-oauth: "true"
+    opendatahub.io/username: user1
+  labels:
+    app: {{ .Values.workbench.name }}
+spec:
+  template:
+    spec:
+      containers:
+        - name: {{ .Values.workbench.name }}
+          image: {{ .Values.workbench.notebookImage }}
+          env:
+            {{- include "agentops.maasEnv" . | nindent 12 }}
+            - name: MLFLOW_TRACKING_URI
+              value: {{ include "agentops.mlflowUri" . | quote }}
+          resources:
+            requests:
+              cpu: 500m
+              memory: 2Gi
+            limits:
+              cpu: 2000m
+              memory: 4Gi
+          volumeMounts:
+            - name: workbench-data
+              mountPath: /opt/app-root/src
+      volumes:
+        - name: workbench-data
+          persistentVolumeClaim:
+            claimName: workbench-data
